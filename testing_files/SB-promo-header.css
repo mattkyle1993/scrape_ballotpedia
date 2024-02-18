@@ -1,0 +1,25 @@
+/* Sample Ballot Promotional Header Styles */
+
+.sb-promo-front-container {
+    width:90%;
+    text-align:center;
+    margin:20px auto;
+    padding:2em;
+    background-color:#0645ad;
+    background-image: url("https://cdn.ballotpedia.org/images/d/db/Idaho-map.png");
+    background-repeat: no-repeat;
+    background-size:cover;
+    color:#fff;
+    font-size: 1.2em;
+}
+
+.sb-promo-link-container {
+    text-decoration: none !important;
+}
+
+#sb-promo-lookup-heading-title {
+    color: #f0a236;
+    text-transform:uppercase;
+    font-weight:700;
+    font-size:35px;
+}
