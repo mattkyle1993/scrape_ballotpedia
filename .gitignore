@@ -1,3 +1,8 @@
 *.txt
 *.csv
 *.xlsx
+*.html
+*.png
+*.json
+*.css
+__pycache__

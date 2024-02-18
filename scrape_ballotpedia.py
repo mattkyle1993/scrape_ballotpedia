@@ -372,7 +372,7 @@ class BallotpediaDataGrabber():
                 match = re.search(state,h)
                 if match:
                     curr_state = match
-                    break
+                    break 
             voteboxes = soup.find_all("td",{"class":"votebox-results-cell--text"})
             for vote in voteboxes:
                 ref = vote.get('href')
