@@ -200,6 +200,23 @@ class BallotpediaDataGrabber():
             return fb_urls
         if return_soup == True:
             return fb_urls,soup
+        
+    def get_party_name_from_officerholder_table(self,url_with_table):
+        """
+        grabs party name from 'officerholder-table' web-element
+        """
+        driver = get_selenium_driver()
+        driver.get(url_with_table)
+        party_elements = driver.find_elements(By.XPATH,"//*[@id='officeholder-table']/tbody/tr/td[3]")
+        parties=[]
+        for party in party_elements:
+            if party.text != None:
+                parties.append(party.text)
+            else:
+                print("None?",party.text)
+                parties.append('Vacant')
+        driver.close()
+        return parties
     def search_for_state_or_federal_legislator(self,searched_name,fuzzy_threshold=80,government_level="federal"):
         """
         uses fuzzy wuzzy to search for legislator. returns a list of potential matches and their data. 
@@ -214,7 +231,7 @@ class BallotpediaDataGrabber():
                 the_url = legist_url[1]
             driver = get_selenium_driver(minimize=self.selenium_minimize) 
             driver.get(the_url)
-            tr_element=driver.find_element(By.XPATH,f"//tr[.//td//a[@href='{legist_url}']]") 
+            tr_element=driver.find_element(By.XPATH,"//tr[.//td[@style='padding-left:10px;']]") 
             driver.implicitly_wait(3)
             chng_url = legist_url.replace("https://ballotpedia.org/","")
             screencap_name = f"searched_politician_screenshot/screencap_{chng_url}.png"
@@ -236,7 +253,6 @@ class BallotpediaDataGrabber():
                     print(f"Search results here for {searched_name}: ",text)
             else:
                 print(f"Search results here for {searched_name}: ",text)
-
         def get_fuzz_match_individ(search_name,legist_list,f_thresh=fuzzy_threshold,print_=True):
             """
             matches legislator name from url to legislator name in table element screenshot
@@ -353,12 +369,11 @@ class BallotpediaDataGrabber():
                 print("failed to find:", searched_name)
                 return False
 
-
     def grab_political_recall_efforts_2024(self,):
         """
         grab candidates/legistlators for political recall elections in 2024
         """
-        states = self.return_states_list_and_stage_groups_urls
+        states = self.return_states_list_and_stage_groups_urls()
         soup = get_beautiful_soup(url="https://ballotpedia.org/Political_recall_efforts,_2024")
         recall_elements = soup.find_all('a',{"title":re.compile('recall')},recursive=True)
         hrefs = []
@@ -393,6 +408,66 @@ class BallotpediaDataGrabber():
         recall_final_df = pd.concat(all_recall_candidates,axis=1)
         recall_final_df.to_csv("recall_elections/recall_candidates_2024.csv")
 
+    def grab_state_executive_officeholders(self,):
+        """
+        grab each state government executive officeholders info
+        """
+        state_executive_url_template = "https://ballotpedia.org/REPLACE_state_executive_offices"
+        states, _, _ = self.return_states_list_and_stage_groups_urls()
+        executes = []
+        stslft = 0
+        for state in states:
+            stslft += 1
+            lft2go = len(states) - stslft
+            print("Working on state: ",state,". Number of states left to go after this state: ",lft2go,".")
+            url = state_executive_url_template.replace("REPLACE",state)
+            party_list = self.get_party_name_from_officerholder_table(url_with_table=url)
+            soup = get_beautiful_soup(url=url)
+            # trs = soup.find_all("//tr[.//td[@style='padding-left:10px;']]") 
+            tr_elements = soup.find_all("tr")
+            trs = [tr for tr in tr_elements if tr.find("td", style="padding-left:10px;")]
+            ct = 0
+            for t in trs:
+                party = party_list[ct]
+                ct+=1
+                pol_office_name = t.find("td",{"style":"padding-left:10px;"}).text.strip()
+                print("political office name: ",pol_office_name)
+                person_name = t.find("td",{"style":"padding-left:10px;text-align:center;"}).text.strip()
+                if person_name == "Vacant":
+                    person_href = "Vacant.com"
+                    fb_urls_vacant = []
+                    execute_dict = {
+                        "person":person_name,
+                        "office_name":pol_office_name,
+                        "state":state,
+                        "party":party,
+                    }
+                    for i in range(1,6):
+                        try:
+                            execute_dict[f'Facebook Link {i}'] = fb_urls_vacant[i]
+                        except:
+                            execute_dict[f'Facebook Link {i}'] = "N/A"
+                    execute_df = pd.DataFrame(execute_dict,index=["person"])
+                    executes.append(execute_df)
+                else:
+                    person_href = t.find("td",{"style":"padding-left:10px;text-align:center;"},)
+                    person_href = person_href.find("a",href=True).get('href')
+                    fb_urls = self.get_fb_urls(url=person_href)
+                    execute_dict = {
+                        "person":person_name,
+                        "office_name":pol_office_name,
+                        "state":state,
+                        "party":party,
+                    }
+                    for i in range(1,6):
+                        try:
+                            execute_dict[f'Facebook Link {i}'] = fb_urls[i]
+                        except:
+                            execute_dict[f'Facebook Link {i}'] = "N/A"
+                    execute_df = pd.DataFrame(execute_dict,index=["state"])
+                    execute_df.to_csv(f"state_executive_officeholders/state_executive_{person_name}.csv") 
+                    executes.append(execute_df)
+        print("Finished.")
     def ballotpedia_grab_federal_level_computer_vision(self,read_image=False,fuzzy_threshold=80):
 
         def run_grab_tr_element_screenshots(the_url):
@@ -1030,16 +1105,56 @@ class BallotpediaDataGrabber():
 # import os
 
 # df_list = []
-# for filename in os.listdir("school_district_people/"):
-#     if filename.endswith(".csv"):
-#         if filename != "111_all_federal_legislators.csv":
-#             # print(os.path.join(directory, filename))
-#             filename = "school_district_people/" + filename
-#             df = pd.read_csv(filename)
-#             df_list.append(df)
+persons =[]
+offices =[]
+states=[]
+partys=[]
+fb1s=[]
+fb2s=[]
+fb3s=[]
+fb4s=[]
+fb5s=[]
+
+cols = ['person','office_name','state','party','Facebook Link 1','Facebook Link 2','Facebook Link 3','Facebook Link 4','Facebook Link 5']
+
+# NAMES = []
+ct=0
+for filename in os.listdir("state_executive_officeholders/"):
+    if filename.endswith(".csv"):
+        if "final_state" not in filename:
+            # if filename not in NAMES:
+            #     NAMES.append(filename)
+            filename_ = "state_executive_officeholders/" + filename
+            df = pd.read_csv(filename_)
+            persons.append(df.person.tolist()[0])
+            offices.append(df.office_name.tolist()[0])
+            states.append(df.state.tolist()[0])
+            partys.append(df.party.tolist()[0])
+            fb1s.append(df['Facebook Link 1'].tolist()[0])
+            fb2s.append(df['Facebook Link 2'].tolist()[0])
+            fb3s.append(df['Facebook Link 3'].tolist()[0])
+            fb4s.append(df['Facebook Link 4'].tolist()[0])
+            fb5s.append(df['Facebook Link 5'].tolist()[0])
+            # df_list.append(df)
+
+            ct+=1
+# print("ct:",ct)
 
 # final_df = pd.concat(df_list,ignore_index=True)
+<<<<<<< Updated upstream
 # # final_df = final_df.drop(columns=['legist_url'])
 # final_df.to_csv("school_district_people/top_200_school_dist_people.csv")
  
  
+=======
+# print(len(df_list))
+# columnss = ['person','office_name','state','party','Facebook Link 1','Facebook Link 2','Facebook Link 3','Facebook Link 4','Facebook Link 5']
+# final_df.columns = columnss
+# final_df.drop_duplicates(inplace=True)
+final_df = pd.DataFrame({"person":persons,"office_name":offices,"state":states,"party":partys,"FB_LNK_1":fb1s,"FB_LNK_2":fb2s,"FB_LNK_3":fb3s,"FB_LNK_4":fb4s,"FB_LNK_5":fb5s,})
+final_df.to_excel("state_executive_officeholders/state_government_executives_dwnldfeb192024_fburls.xlsx")
+# final_df.to_csv("state_executive_officeholders/state_government_executives_dwnldfeb192024_fburls.csv")
+print(final_df.shape)
+
+# print(final_df.person.value_counts())
+>>>>>>> Stashed changes

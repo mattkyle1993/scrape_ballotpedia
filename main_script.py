@@ -43,4 +43,7 @@ def main_func(search_for="",searched_level="federal",total_grab="federal",save_a
 #     )
     
 # name spelled wrong on purpose to showcase matching capabilities.
-main_func(search_for="matthew")  # Cori Bush (rep from St Louis, MO) is correct spelling.
+# main_func(search_for="matthew")  # Cori Bush (rep from St Louis, MO) is correct spelling.
+            
+BALLOT = BallotpediaDataGrabber()
+BALLOT.grab_state_executive_officeholders()
