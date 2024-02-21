@@ -1041,3 +1041,5 @@ class BallotpediaDataGrabber():
 # final_df = pd.concat(df_list,ignore_index=True)
 # # final_df = final_df.drop(columns=['legist_url'])
 # final_df.to_csv("school_district_people/top_200_school_dist_people.csv")
+ 
+ 
